@@ -7,4 +7,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: observed-generation-demo
 repo: github.com/ilrudie/observed-generation-demo
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: demo.demo
+  group: demo
+  kind: Resource
+  path: github.com/ilrudie/observed-generation-demo/api/v1alpha1
+  version: v1alpha1
 version: "3"

@@ -1,0 +1,12 @@
+apiVersion: demo.demo.demo/v1alpha1
+kind: Resource
+metadata:
+  labels:
+    app.kubernetes.io/name: resource
+    app.kubernetes.io/instance: resource-sample
+    app.kubernetes.io/part-of: observed-generation-demo
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: observed-generation-demo
+  name: resource-sample
+spec:
+  # TODO(user): Add fields here
