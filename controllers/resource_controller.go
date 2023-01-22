@@ -18,11 +18,14 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	demov1alpha1 "github.com/ilrudie/observed-generation-demo/api/v1alpha1"
 )
@@ -50,13 +53,53 @@ func (r *ResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
+	resource := demov1alpha1.Resource{}
+	err := r.Get(ctx, req.NamespacedName, &resource)
+	if err != nil {
+		// hopefully a delete, just give up I guess
+		return ctrl.Result{}, nil
+	}
+
+	resource.Status.ReconciledBody = resource.Spec.Body
+	resource.Status.ObservedGeneration = resource.ObjectMeta.Generation
+	resource.Status.ReconcileTimestamp = time.Now().UTC().Format(time.UnixDate)
+
+	r.Client.Status().Update(ctx, &resource)
 
 	return ctrl.Result{}, nil
+}
+
+func checkObservedGeneration(o client.Object) bool {
+	// safe type assert
+	resource, ok := o.(*demov1alpha1.Resource)
+	if !ok {
+		//something strange, just reconcile I guess
+		return true
+	}
+
+	if resource.ObjectMeta.Generation == resource.Status.ObservedGeneration {
+		return false
+	}
+	return true
+}
+
+func makePredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return checkObservedGeneration(e.ObjectNew)
+		},
+
+		// on startup nothing is already known so it will look like a create to your operator
+		CreateFunc: func(e event.CreateEvent) bool {
+			return checkObservedGeneration(e.Object)
+		},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&demov1alpha1.Resource{}).
+		WithEventFilter(makePredicate()).
 		Complete(r)
 }
